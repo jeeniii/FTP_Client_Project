@@ -1,0 +1,10 @@
+C:\Users\xkr12\source\repos\FTP_Client_Project\bin\Debug\FTP_Client_Project.exe.config
+C:\Users\xkr12\source\repos\FTP_Client_Project\bin\Debug\FTP_Client_Project.exe
+C:\Users\xkr12\source\repos\FTP_Client_Project\bin\Debug\FTP_Client_Project.pdb
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.csproj.AssemblyReference.cache
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.FTPManager.resources
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.Properties.Resources.resources
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.csproj.GenerateResource.cache
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.csproj.CoreCompileInputs.cache
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.exe
+C:\Users\xkr12\source\repos\FTP_Client_Project\obj\Debug\FTP_Client_Project.pdb
