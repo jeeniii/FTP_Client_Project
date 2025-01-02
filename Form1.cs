@@ -1,40 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using System.IO;
 using System.Net;
+using System.Windows.Forms;
 
 namespace FTP_Client_Project
 {
     public partial class FTPManager : Form
     {
+        private FTPClass ftpClient;
+
         public FTPManager()
         {
             InitializeComponent();
+            ftpClient = new FTPClass();
+            ftpClient.ExceptionEvent += HandleException;
 
-            //기본 경로 설정
+            // 기본 경로 설정
             LoadLocalDirectories("C:\\");
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
-        }
-
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
-
         }
 
         private void btnConnect_Click(object sender, EventArgs e)
@@ -43,43 +29,29 @@ namespace FTP_Client_Project
             string username = txtUsername.Text;
             string password = txtPassword.Text;
 
-            try
+            if (ftpClient.ConnectToServer(ftpServer, username, password))
             {
-                FtpWebRequest request = (FtpWebRequest)WebRequest.Create(ftpServer);
-                request.Credentials = new NetworkCredential(username, password);
-                request.Method = WebRequestMethods.Ftp.ListDirectory;
-
-                using (FtpWebResponse response = (FtpWebResponse)request.GetResponse())
-                {
-                    txtStatus.Text = "FTP 연결 성공";
-                    LoadRemoteDirectories("/");
-                }
+                txtStatus.Text = "FTP 연결 성공";
+                LoadRemoteDirectories("/");
             }
-            catch (Exception ex)
+            else
             {
-                txtStatus.Text = "FTP 연결 실패: " + ex.Message;
+                txtStatus.Text = "FTP 연결 실패: " + ftpClient.LastException?.Message;
             }
-
         }
 
         private void LoadRemoteDirectories(string path)
         {
             try
             {
-                FtpWebRequest request = (FtpWebRequest)WebRequest.Create(txtIP.Text + path);
-                request.Credentials = new NetworkCredential(txtUsername.Text, txtPassword.Text);
-                request.Method= WebRequestMethods.Ftp.ListDirectory;
+                var directories = ftpClient.GetDirectoryListing(path);
+                tvRemote.Nodes.Clear();
 
-                using (FtpWebResponse response = (FtpWebResponse)request.GetResponse())
-                using (StreamReader reader = new StreamReader(response.GetResponseStream()))
+                foreach (string dir in directories)
                 {
-                    tvRemote.Nodes.Clear();
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        tvRemote.Nodes.Add(line);
-                    }
+                    tvRemote.Nodes.Add(dir);
                 }
+
                 txtStatus.Text = "원격 디렉토리 로드 성공";
             }
             catch (Exception ex)
@@ -94,6 +66,7 @@ namespace FTP_Client_Project
             {
                 tvLocal.Nodes.Clear();
                 string[] directories = Directory.GetDirectories(path);
+
                 foreach (string dir in directories)
                 {
                     tvLocal.Nodes.Add(Path.GetFileName(dir));
@@ -101,9 +74,14 @@ namespace FTP_Client_Project
 
                 lvLocal.Items.Clear();
                 string[] files = Directory.GetFiles(path);
+
                 foreach (string file in files)
                 {
-                    lvLocal.Items.Add(Path.GetFileName(file));
+                    FileInfo fileInfo = new FileInfo(file);
+                    ListViewItem item = new ListViewItem(fileInfo.Name);
+                    item.SubItems.Add(fileInfo.Length.ToString("N0") + " bytes"); // 크기 추가
+                    item.SubItems.Add(fileInfo.LastWriteTime.ToString());
+                    lvLocal.Items.Add(item);
                 }
 
                 txtStatus.Text = "로컬 디렉토리 로드 성공";
@@ -118,26 +96,24 @@ namespace FTP_Client_Project
         {
             if (lvLocal.SelectedItems.Count == 0) return;
 
-            string localFile = lvLocal.SelectedItems[0].Text;
-            string remotePath = txtRemoteSite.Text + "/" + localFile;
+            progressBar.Maximum = lvLocal.SelectedItems.Count;
+            progressBar.Value = 0;
 
-            try
+            foreach (ListViewItem item in lvLocal.SelectedItems)
             {
-                FtpWebRequest request = (FtpWebRequest)WebRequest.Create(txtIP.Text + remotePath);
-                request.Credentials = new NetworkCredential(txtUsername.Text, txtPassword.Text);
-                request.Method = WebRequestMethods.Ftp.UploadFile;
+                string localFile = item.Text;
+                string remotePath = txtRemoteSite.Text + "/" + localFile;
 
-                using (Stream fileStream = File.OpenRead(localFile))
-                using (Stream requestStream = request.GetRequestStream())
+                if (ftpClient.UploadFile(localFile, remotePath))
                 {
-                    fileStream.CopyTo(requestStream);
+                    txtStatus.Text = $"파일 {localFile} 업로드 성공";
+                }
+                else
+                {
+                    txtStatus.Text = $"파일 {localFile} 업로드 실패: {ftpClient.LastException?.Message}";
                 }
 
-                txtStatus.Text = "파일 업로드 성공";
-            }
-            catch (Exception ex)
-            {
-                txtStatus.Text = "파일 업로드 실패: " + ex.Message;
+                progressBar.Value++;
             }
         }
 
@@ -145,28 +121,74 @@ namespace FTP_Client_Project
         {
             if (lvRemote.SelectedItems.Count == 0) return;
 
-            string remoteFile = lvRemote.SelectedItems[0].Text;
-            string localPath = Path.Combine("C:\\", remoteFile);
+            progressBar.Maximum = lvRemote.SelectedItems.Count;
+            progressBar.Value = 0;
 
+            foreach (ListViewItem item in lvRemote.SelectedItems)
+            {
+                string remoteFile = item.Text;
+                string localPath = Path.Combine("C:\\", remoteFile);
+
+                if (ftpClient.DownloadFile(remoteFile, localPath))
+                {
+                    txtStatus.Text = $"파일 {remoteFile} 다운로드 성공";
+                }
+                else
+                {
+                    txtStatus.Text = $"파일 {remoteFile} 다운로드 실패: {ftpClient.LastException?.Message}";
+                }
+            }
+
+            progressBar.Value++;
+        }
+
+        private void HandleException(string locationID, Exception ex)
+        {
+            txtStatus.Text = $"Error at {locationID}: {ex.Message}";
+
+            //로그 파일 저장
+            string logPath = Path.Combine(Environment.CurrentDirectory, "error_log.txt");
+            File.AppendAllText(logPath, $"{DateTime.Now}: {locationID} - {ex.Message}\n");
+        }
+
+        private void SyncDirectories(string localPath, string remotePath)
+        {
             try
             {
-                FtpWebRequest request = (FtpWebRequest)WebRequest.Create(txtIP.Text + remoteFile);
-                request.Credentials = new NetworkCredential( txtUsername.Text, txtPassword.Text);
-                request.Method= WebRequestMethods.Ftp.DownloadFile;
+                string[] localFiles = Directory.GetFiles(localPath);
+                string[] localDirectories = Directory.GetDirectories(localPath);
 
-                using (FtpWebResponse response = (FtpWebResponse)request.GetResponse())
-                using (Stream responseStream = response.GetResponseStream())
-                using (Stream localFileStream = File.Create(localPath))
+                foreach (var file in localFiles)
                 {
-                    responseStream.CopyTo(localFileStream);
+                    string fileName = Path.GetFileName(file);
+                    string remoteFilePath = remotePath + "/" + fileName;
+
+                    if (ftpClient.UploadFile(file, remoteFilePath))
+                    {
+                        txtStatus.Text = $"동기화: {fileName} 업로드 성공";
+                    }
+                    else
+                    {
+                        txtStatus.Text = $"동기화: {fileName} 업로드 실패";
+                    }
                 }
 
-                txtStatus.Text = "파일 다운로드 성공";
+                foreach (string dir in localDirectories)
+                {
+                    string dirName = Path.GetFileName(dir);
+                    string remoteDirPath = remotePath + "/" + dirName;
+
+                    ftpClient.CreateRemoteDirectory(remoteDirPath); //원격 디렉토리 생성
+                    SyncDirectories(dir, remoteDirPath); //재귀 호출
+                }
             }
             catch (Exception ex)
             {
-                txtStatus.Text = "파일 다운로드 실패: " + ex.Message;
+                txtStatus.Text = $"동기화 중 오류 발생: {ex.Message}";
             }
+
+            
+            
         }
     }
 }

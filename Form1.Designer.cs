@@ -56,7 +56,6 @@
             this.label1.Size = new System.Drawing.Size(16, 12);
             this.label1.TabIndex = 0;
             this.label1.Text = "IP";
-            this.label1.Click += new System.EventHandler(this.label1_Click);
             // 
             // label2
             // 
@@ -94,6 +93,7 @@
             // 
             this.txtPassword.Location = new System.Drawing.Point(429, 44);
             this.txtPassword.Name = "txtPassword";
+            this.txtPassword.PasswordChar = '*';
             this.txtPassword.Size = new System.Drawing.Size(100, 21);
             this.txtPassword.TabIndex = 6;
             // 
@@ -256,6 +256,7 @@
         private System.Windows.Forms.Button btnDownload;
         private System.Windows.Forms.TextBox txtStatus;
         private System.Windows.Forms.Label txtProgress;
+        private System.Windows.Forms.ProgressBar progressBar;
     }
 }
 
